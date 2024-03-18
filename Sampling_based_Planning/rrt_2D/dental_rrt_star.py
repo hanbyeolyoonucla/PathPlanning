@@ -67,7 +67,7 @@ class RrtStar:
                     self.choose_parent(node_new, neighbor_index)
                     self.rewire(node_new, neighbor_index)
 
-        index = self.search_goal_parent()
+        index = self.search_optimal_path()  # self.search_goal_parent()
         self.path = self.extract_path(self.vertex[index])
 
         self.plotting.animation(self.vertex, self.path, "rrt*, N = " + str(self.iter_max))
@@ -86,16 +86,27 @@ class RrtStar:
     def choose_parent(self, node_new, neighbor_index):
         cost = [self.get_new_cost(self.vertex[i], node_new) for i in neighbor_index]
         reward = [self.get_new_reward(self.vertex[i], node_new) for i in neighbor_index]
+        reward_cost_ratio = [reward[i]/cost[i] for i in neighbor_index]
 
-        cost_min_index = neighbor_index[int(np.argmin(cost))]
-        node_new.parent = self.vertex[cost_min_index]
+        reward_cost_ratio_max_index = neighbor_index[int(np.argmax(reward_cost_ratio))]
+        # cost_min_index = neighbor_index[int(np.argmin(cost))]
+
+        node_new.parent = self.vertex[reward_cost_ratio_max_index]
+        node_new.cost = cost[int(np.argmax(reward_cost_ratio))]
+        node_new.reward = reward[int(np.argmax(reward_cost_ratio))]
+        node_new.removed_decay_index, node_new.removed_enamel_index = self.get_removed_index(node_new.parent, node_new)
 
     def rewire(self, node_new, neighbor_index):
         for i in neighbor_index:
             node_neighbor = self.vertex[i]
-
-            if self.cost(node_neighbor) > self.get_new_cost(node_new, node_neighbor):
+            cost = self.get_new_cost(node_new, node_neighbor)
+            reward = self.get_new_reward(node_new, node_neighbor)
+            reward_cost_ratio = reward/cost
+            if node_neighbor.reward/node_neighbor.cost > reward_cost_ratio:
                 node_neighbor.parent = node_new
+                node_neighbor.reward = reward
+                node_neighbor.cost = cost
+                node_neighbor.removed_decay_index, node_neighbor.removed_enamel_index = self.get_removed_index(node_neighbor.parent, node_neighbor)
 
     def search_goal_parent(self):
         dist_list = [math.hypot(n.x - self.s_goal.x, n.y - self.s_goal.y) for n in self.vertex]
@@ -108,6 +119,15 @@ class RrtStar:
 
         return len(self.vertex) - 1
 
+    def search_optimal_path(self):
+        reward_list = [n.reward for n in self.vertex]
+        reward_cost_ratio_list = [n.reward/n.cost for n in self.vertex]
+        if np.max(reward_list) - (len(self.decay) + 1) < 10:
+            return int(np.argmax(reward_list))
+        else:
+            return int(np.argmax(reward_cost_ratio_list))
+
+
     def get_new_cost(self, node_start, node_end):
         dist, _ = self.get_distance_and_angle(node_start, node_end)
 
@@ -115,8 +135,8 @@ class RrtStar:
 
     def get_new_reward(self, node_start, node_end):
         decay_index, enamel_index = self.get_removed_index(self, node_start, node_end)
-        new_reward = np.sum(decay_index) - np.sum(enamel_index)
-        return node_start.reward + new_reward  # self.cost(node_start) + dist
+        reward = np.sum(decay_index) - np.sum(enamel_index) + 1
+        return reward  # self.cost(node_start) + dist
 
     def get_removed_index(self, node_start, node_end):
         start_point = np.array(node_start.x, node_start.y)
@@ -128,10 +148,13 @@ class RrtStar:
         b = start_point - self.bur_radius * swept_normal_vector
         c = end_point - self.bur_radius * swept_normal_vector
         d = end_point + self.bur_radius * swept_normal_vector
-        swept_polygon = Polygon([a,b,c,d])
-        decay_index = [True if Point(pt).within(swept_polygon) or np.linalg.norm(pt - start_point) or np.linalg.norm(pt - end_point) else False for pt in self.decay]
-        enamel_index = [True if Point(pt).within(swept_polygon) or np.linalg.norm(pt - start_point) or np.linalg.norm(pt - end_point) else False for pt in self.enamel]
+        swept_polygon = Polygon([a, b, c, d])
+        decay_index = [True if Point(pt).within(swept_polygon) or np.linalg.norm(pt - start_point) <= self.bur_radius or np.linalg.norm(pt - end_point) <= self.bur_radius else False for pt in self.decay]
+        enamel_index = [True if Point(pt).within(swept_polygon) or np.linalg.norm(pt - start_point) <= self.bur_radius or np.linalg.norm(pt - end_point) <= self.bur_radius else False for pt in self.enamel]
+        decay_index = np.any([decay_index, node_start.removed_decay_index], axis=0)
+        enamel_index = np.any([enamel_index, node_start.removed_enamel_index], axis=0)
         return decay_index, enamel_index
+
     def generate_random_node(self, goal_sample_rate):
         delta = self.utils.delta
 
@@ -203,7 +226,7 @@ def main():
     x_start = (10, 15)  # Starting node
     x_goal = (37, 18)  # Goal node
 
-    rrt_star = RrtStar(x_start, x_goal, 10, 0.10, 20, 1000)
+    rrt_star = RrtStar(x_start, x_goal, 10, 0.10, 20, 100)
     rrt_star.planning()
 
 
