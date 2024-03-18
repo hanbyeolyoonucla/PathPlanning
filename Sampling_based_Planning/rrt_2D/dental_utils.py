@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)) +
                 "/../../Sampling_based_Planning/")
 
 from Sampling_based_Planning.rrt_2D import dental_env
-from Sampling_based_Planning.rrt_2D.rrt import Node
+from Sampling_based_Planning.rrt_2D.dental_rrt_star import Node
 
 
 class Utils:

@@ -26,13 +26,13 @@ class Env:
     def enamel():
         x = np.random.uniform(10, 25, 100)
         y = np.random.uniform(5, 10, 100)
-        enamel1 = np.column_stack(x, y)
+        enamel1 = np.column_stack((x, y))
         x = np.random.uniform(10, 25, 100)
         y = np.random.uniform(20, 25, 100)
-        enamel2 = np.column_stack(x, y)
+        enamel2 = np.column_stack((x, y))
         x = np.random.uniform(20, 25, 100)
         y = np.random.uniform(10, 20, 100)
-        enamel3 = np.column_stack(x, y)
+        enamel3 = np.column_stack((x, y))
         enamel = np.column_stack((enamel1, enamel2, enamel3))
         return enamel
 
@@ -49,21 +49,20 @@ class Env:
     @staticmethod
     def obs_rectangle():
         obs_rectangle = [
-            [14, 12, 8, 2],
-            [18, 22, 8, 3],
-            [26, 7, 2, 12],
-            [32, 14, 10, 2]
+            [30, 2, 9, 5],
+            [30, 24, 9, 5],
+            [40, 2, 9, 27]
         ]
         return obs_rectangle
 
     @staticmethod
     def obs_circle():
         obs_cir = [
-            [7, 12, 3],
-            [46, 20, 2],
-            [15, 5, 2],
-            [37, 7, 3],
-            [37, 23, 3]
+            # [7, 12, 3],
+            # [46, 20, 2],
+            # [15, 5, 2],
+            # [37, 7, 3],
+            # [37, 23, 3]
         ]
 
         return obs_cir

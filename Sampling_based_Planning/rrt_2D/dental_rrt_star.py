@@ -7,11 +7,11 @@ import os
 import sys
 import math
 import numpy as np
-
+from shapely.geometry import Point, Polygon
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) +
                 "/../../Sampling_based_Planning/")
 
-from Sampling_based_Planning.rrt_2D import dental_env, plotting, dental_utils, queue
+from Sampling_based_Planning.rrt_2D import dental_env, dental_plotting, dental_utils, queue
 
 
 class Node:
@@ -38,7 +38,7 @@ class RrtStar:
         self.path = []
 
         self.env = dental_env.Env()
-        self.plotting = plotting.Plotting(x_start, x_goal)
+        self.plotting = dental_plotting.Plotting(x_start, x_goal)
         self.utils = dental_utils.Utils()
 
         self.x_range = self.env.x_range
@@ -48,6 +48,7 @@ class RrtStar:
         self.obs_boundary = self.env.obs_boundary
         self.decay = self.env.decay
         self.enamel = self.env.enamel
+        self.bur_radius = 1
 
     def planning(self):
         for k in range(self.iter_max):
@@ -84,6 +85,7 @@ class RrtStar:
 
     def choose_parent(self, node_new, neighbor_index):
         cost = [self.get_new_cost(self.vertex[i], node_new) for i in neighbor_index]
+        reward = [self.get_new_reward(self.vertex[i], node_new) for i in neighbor_index]
 
         cost_min_index = neighbor_index[int(np.argmin(cost))]
         node_new.parent = self.vertex[cost_min_index]
@@ -109,8 +111,27 @@ class RrtStar:
     def get_new_cost(self, node_start, node_end):
         dist, _ = self.get_distance_and_angle(node_start, node_end)
 
-        return self.cost(node_start) + dist
+        return node_start.cost + dist  # self.cost(node_start) + dist
 
+    def get_new_reward(self, node_start, node_end):
+        decay_index, enamel_index = self.get_removed_index(self, node_start, node_end)
+        new_reward = np.sum(decay_index) - np.sum(enamel_index)
+        return node_start.reward + new_reward  # self.cost(node_start) + dist
+
+    def get_removed_index(self, node_start, node_end):
+        start_point = np.array(node_start.x, node_start.y)
+        end_point = np.array(node_end.x, node_end.y)
+        swept_vector = end_point - start_point
+        swept_angle = np.arctan2(swept_vector[1], swept_vector[0])
+        swept_normal_vector = np.array([math.sin(swept_angle), math.cos(swept_angle)])
+        a = start_point + self.bur_radius * swept_normal_vector
+        b = start_point - self.bur_radius * swept_normal_vector
+        c = end_point - self.bur_radius * swept_normal_vector
+        d = end_point + self.bur_radius * swept_normal_vector
+        swept_polygon = Polygon([a,b,c,d])
+        decay_index = [True if Point(pt).within(swept_polygon) or np.linalg.norm(pt - start_point) or np.linalg.norm(pt - end_point) else False for pt in self.decay]
+        enamel_index = [True if Point(pt).within(swept_polygon) or np.linalg.norm(pt - start_point) or np.linalg.norm(pt - end_point) else False for pt in self.enamel]
+        return decay_index, enamel_index
     def generate_random_node(self, goal_sample_rate):
         delta = self.utils.delta
 
@@ -177,16 +198,12 @@ class RrtStar:
         dy = node_end.y - node_start.y
         return math.hypot(dx, dy), math.atan2(dy, dx)
 
-    @staticmethod
-    def get_removed_index(node_start, node_end, bur_radius):
-
-
 
 def main():
-    x_start = (18, 8)  # Starting node
+    x_start = (10, 15)  # Starting node
     x_goal = (37, 18)  # Goal node
 
-    rrt_star = RrtStar(x_start, x_goal, 10, 0.10, 20, 10000)
+    rrt_star = RrtStar(x_start, x_goal, 10, 0.10, 20, 1000)
     rrt_star.planning()
 
 
